@@ -1,0 +1,190 @@
+---
+title: "titanic_graphs"
+author: "Lev Barbash"
+date: "2023-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load}
+library(tidyverse)
+data <- read.csv("titanic.csv", sep=',')
+data$Sex <- ifelse(data$Sex == 'male', 'Male', 'Female')
+data$Pclass <- paste('Class', data$Pclass)
+data$Survived <- ifelse(data$Survived == 1, 'Yes', 'No')
+```
+
+## 1
+
+Generate a series of bar charts to describe the gender, ticket class and survival of the passengers onboard.
+
+```{r bar_charts_total}
+library(ggplot2)
+library(gridExtra)
+columns <- c('Sex', 'Pclass', 'Survived')
+plots <- list()
+for (col in columns) {
+  temp_sers <- table(data[[col]])
+  
+  p <- ggplot(data.frame(x = names(temp_sers), y = as.numeric(temp_sers)),
+              aes(x = x, y = y)) +
+    geom_bar(stat = 'identity', fill = 'steelblue') +
+    labs(title = col) +
+    ylim(0, 600) +
+    theme_minimal()
+  
+  plots[[col]] <- p
+}
+grid.arrange(plots[[1]], plots[[2]], plots[[3]], ncol = 3)
+```
+
+## 2
+
+Generate a histogram for the passengers’ age. Furthermore, describe the passengers’ age using the following two boxplots: age per ticket class and age based on survival.
+
+```{r hist_age}
+data <- na.omit(data)
+p <- ggplot(data, aes(x = Age)) +
+  geom_histogram(binwidth = 5, fill = 'steelblue', color = 'black') +
+  labs(title = "Passengers' age distribution") +
+  theme_minimal()
+
+print(p)
+```
+
+```{r box_1}
+p <- ggplot(data, aes(x = Pclass, y = Age)) +
+  geom_boxplot(fill = 'steelblue', color = 'black') +
+  scale_x_discrete(labels = c('Class 1', 'Class 2', 'Class 3')) +
+  labs(title = 'Age per ticket class') +
+  theme_minimal()
+
+print(p)
+```
+
+```{r box_2}
+p <- ggplot(data, aes(x = Survived, y = Age)) +
+  geom_boxplot(fill = 'steelblue', color = 'black') +
+  scale_x_discrete(labels = c('No', 'Yes')) +
+  labs(title = 'Age based on survival') +
+  theme_minimal()
+
+print(p)
+```
+
+## 3
+
+Generate a histogram for the travel fare and a table showing the number of people who did not pay – you may want to check on Google why a handful of people was on board for free!
+
+```{r hist_fare}
+p1 <- ggplot(data, aes(x = Fare)) +
+  geom_histogram(binwidth = 10, fill = 'steelblue', color = 'black') +
+  labs(title = "Passengers' fare distribution") +
+  theme_minimal()
+
+p2 <- ggplot(data[data$Fare <= 150, ], aes(x = Fare)) +
+  geom_histogram(binwidth = 10, fill = 'steelblue', color = 'black') +
+  labs(title = "(Fare <= 150)") +
+  theme_minimal()
+
+p3 <- ggplot(data[data$Fare <= 50, ], aes(x = Fare)) +
+  geom_histogram(binwidth = 10, fill = 'steelblue', color = 'black') +
+  labs(title = "(Fare <= 50)") +
+  theme_minimal()
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+```{r free_fare_table}
+print(data[data$Fare == 0, ])
+```
+
+## 4
+
+A chart of your choice to describe the family size per ticket class
+
+```{r pie_chart}
+passenger_classes <- c('Class 1', 'Class 2', 'Class 3')
+
+plots <- list()
+
+for (cl in passenger_classes) {
+  temp_sizes <- table(data[data$Pclass == cl, 'SibSp'])
+  
+  p <- ggplot(data.frame(SibSp = names(temp_sizes), Count = as.numeric(temp_sizes)),
+              aes(x = "", y = Count, fill = SibSp)) +
+    geom_bar(stat = "identity", width = 1) +
+    geom_text(aes(label = paste0(round(Count/sum(Count) * 100, 1), "%")), position = position_stack(vjust = 0.5)) +
+    coord_polar(theta = "y") +
+    labs(title = cl) +
+    theme_void() +
+    theme(legend.position = "bottom")
+  
+  plots[[cl]] <- p
+}
+
+grid.arrange(plots[[1]], plots[[2]], plots[[3]], ncol = 3)
+```
+
+## 5
+
+A series of stacked bar charts to show the how survival differs for different gender and ticket class
+
+```{r surv_gend}
+survival_counts <- data %>%
+  filter(Survived == 'No' | Survived == 'Yes') %>%
+  group_by(Sex, Survived) %>%
+  tally()
+
+p <- ggplot(survival_counts, aes(x = Sex, y = n, fill = Survived)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  labs(title = 'Survival Rate for Different Genders') +
+  scale_fill_manual(values = c('No' = 'red', 'Yes' = 'green')) +
+  theme_minimal()
+
+print(p)
+```
+
+```{r surv_class}
+survival_counts <- data %>%
+  filter(Survived == 'No' | Survived == 'Yes') %>%
+  group_by(Pclass, Survived) %>%
+  tally()
+
+# Create a stacked bar plot
+p <- ggplot(survival_counts, aes(x = Pclass, y = n, fill = Survived)) +
+  geom_bar(stat = 'identity', position = 'stack') +
+  labs(title = 'Survival Rate for Different Ticket Classes') +
+  scale_fill_manual(values = c('No' = 'red', 'Yes' = 'green')) +
+  theme_minimal()
+
+print(p)
+```
+
+## 6
+
+A violin chart describing how survival related to age and gender
+
+```{r violin_gend}
+p <- ggplot(data, aes(x = Sex, y = Age, fill = Survived)) +
+  geom_violin() +
+  labs(title = 'Survival related to age and gender') +
+  scale_fill_manual(values = c('No' = 'red', 'Yes' = 'green')) +
+  theme_minimal()
+
+print(p)
+```
+
+```{r violin_class}
+p <- ggplot(data, aes(x = Pclass, y = Age, fill = Survived)) +
+  geom_violin() +
+  labs(title = 'Survival related to age and ticket class') +
+  scale_fill_manual(values = c('No' = 'red', 'Yes' = 'green')) +
+  theme_minimal()
+
+print(p)
+```
